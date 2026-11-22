@@ -1,0 +1,19 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Compressed archives & temporary build files
+*.tar.zst
+*.tar.xz
+*.tar.gz
+*.zip
+dist/
+build/
+*.bak
+
+# Large binary files directory (packaged in GitHub Releases)
+files/
+
+# Logs
+*.log
