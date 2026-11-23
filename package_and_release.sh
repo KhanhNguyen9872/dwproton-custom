@@ -22,14 +22,17 @@ tar -C "$(dirname "$SOURCE_DIR")" \
 echo "Package created at: $DIST_DIR/$ARCHIVE_NAME"
 ls -lh "$DIST_DIR/$ARCHIVE_NAME"
 
+RELEASE_NOTES="${2:-Release $VERSION of dwproton-custom:
+- Auto-inject Steam Overlay renderer (LD_PRELOAD with gameoverlayrenderer.so and Vulkan overlay layers).
+- Fix 'Steam Overlay is not enabled' error (resolved missing 32-bit GameOverlayRenderer.dll check returning 0x31).
+- Automatically symlink Steam userdata/ and config/ into Wine prefix for persistent settings and licenses.
+- Pre-configured Online-Fix DLL overrides (OnlineFix64, steam_api64, SteamOverlay64, winmm, dnet, winhttp).
+- Built-in steamclient64.dll and Steam libraries to fix Error 126 in standalone prefixes.
+- Wine registry steam:// protocol forwarding to host Linux Steam client.}"
+
 echo "=== Uploading release with gh CLI ==="
 gh release create "$VERSION" "$DIST_DIR/$ARCHIVE_NAME" \
     --title "dwproton-custom $VERSION" \
-    --notes "Initial release of dwproton-custom:
-- Pre-configured Online-Fix DLL overrides (OnlineFix64, steam_api64, SteamOverlay64, winmm, dnet).
-- Built-in steamclient64.dll and Steam libraries to fix Error 126 in standalone prefixes.
-- Wine registry steam:// protocol forwarding to host Linux Steam client.
-- Python proton wrapper with graceful fallback to local Steam installation path.
-- Verified compatibility with Genshin Impact, Split Fiction, and indie titles."
+    --notes "$RELEASE_NOTES"
 
 echo "Release $VERSION successfully published!"
