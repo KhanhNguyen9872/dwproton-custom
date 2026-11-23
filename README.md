@@ -10,9 +10,12 @@ A customized, multi-purpose Wine / Proton runner designed for seamless out-of-th
 - Built-in `WINEDLLOVERRIDES` handling for `OnlineFix64`, `steam_api64`, `SteamOverlay64`, `winmm`, and `dnet` (`n,b` - native then built-in).
 - No need to manually add launch options or edit environment variables per game in Heroic / Steam.
 
-### 2. Built-in Steam Client Integration (Fixes Error 126)
-- Pre-populated `steamclient64.dll`, `steamclient.dll`, `Steam.dll`, and `GameOverlayRenderer64.dll` in `default_pfx/drive_c/Program Files (x86)/Steam/`.
+### 2. Built-in Steam Client Integration & Overlay (Fixes Error 126 & Steam Overlay Warning)
+- Pre-populated `steamclient64.dll`, `steamclient.dll`, `Steam.dll`, `GameOverlayRenderer64.dll`, and `GameOverlayRenderer.dll` in `default_pfx/drive_c/Program Files (x86)/Steam/`.
 - Eliminates the common *"Failed to load original steamclient. Error code: 126"* when running non-Steam or repacked games in standalone prefixes.
+- Prevents the *"The Steam Overlay is not enabled"* warning by fulfilling internal Steamworks overlay checks (error code `0x31`).
+- Auto-symlinks Steam `userdata/` and `config/` into the Wine prefix so user profile settings, licenses, and overlay keybindings persist seamlessly.
+- Auto-injects `gameoverlayrenderer.so` into `LD_PRELOAD` and enables Vulkan overlay layers (`ENABLE_VK_LAYER_VALVE_steam_overlay_1=1`) even when launched outside Steam (Heroic, Lutris, Bottles).
 
 ### 3. Native Steam Protocol Forwarding (`steam://`)
 - Registered `Software\Classes\steam\shell\open\command` in Wine registry to bridge through `winebrowser.exe` -> `xdg-open`.

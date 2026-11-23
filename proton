@@ -1027,7 +1027,19 @@ class CompatData:
                 os.symlink("/", self.prefix_dir + "/dosdevices/z:")
 
             # collect configuration info
-            steam_linux_path = os.environ.get("STEAM_COMPAT_CLIENT_INSTALL_PATH", "/home/khanhnguyen9872/.steam/debian-installation")
+            steam_linux_path = os.environ.get("STEAM_COMPAT_CLIENT_INSTALL_PATH")
+            if not steam_linux_path or not os.path.isdir(steam_linux_path):
+                for cand in [
+                    os.path.expanduser("~/.steam/debian-installation"),
+                    os.path.expanduser("~/.steam/steam"),
+                    os.path.expanduser("~/.steam/root"),
+                    os.path.expanduser("~/.local/share/Steam")
+                ]:
+                    if os.path.isdir(cand):
+                        steam_linux_path = cand
+                        break
+            if not steam_linux_path:
+                steam_linux_path = "/home/khanhnguyen9872/.steam/debian-installation"
 
             use_wined3d = "wined3d" in g_session.compat_config
             use_dxvk_dxgi = not use_wined3d and \
@@ -1137,6 +1149,27 @@ class CompatData:
                     srcfile = g_proton.path(src)
                     if os.path.isfile(srcfile):
                         try_copy(srcfile, self.steam_in_pfx_dir + tgt, prefix=self.prefix_dir, track_file=tracked_files, link_debug=True)
+
+                # Ensure 32-bit GameOverlayRenderer.dll is present to satisfy steamclient check (prevents error 0x31 overlay disabled)
+                pfx_steam = self.prefix_dir + self.steam_in_pfx_dir
+                if os.path.isfile(pfx_steam + "GameOverlayRenderer64.dll") and not os.path.isfile(pfx_steam + "GameOverlayRenderer.dll"):
+                    try_copy(pfx_steam + "GameOverlayRenderer64.dll", self.steam_in_pfx_dir + "GameOverlayRenderer.dll", prefix=self.prefix_dir, track_file=tracked_files)
+
+                # Link userdata and config for Steamworks licenses and overlay settings
+                if os.path.isdir(steam_linux_path + '/userdata'):
+                    dst_userdata = os.path.join(self.prefix_dir, self.steam_in_pfx_dir, 'userdata')
+                    if not os.path.exists(dst_userdata):
+                        try:
+                            os.symlink(steam_linux_path + '/userdata', dst_userdata)
+                        except Exception:
+                            pass
+                if os.path.isdir(steam_linux_path + '/config'):
+                    dst_config = os.path.join(self.prefix_dir, self.steam_in_pfx_dir, 'config')
+                    if not os.path.exists(dst_config):
+                        try:
+                            os.symlink(steam_linux_path + '/config', dst_config)
+                        except Exception:
+                            pass
 
                 # CW Bug 19152. IL-2 Sturmovik: Cliffs of Dover Blitz Edition needs user's localconfig.vdf
                 if os.environ.get("SteamGameId", 0) == "754530":
@@ -1722,6 +1755,9 @@ class Session:
                 "SteamOverlay64": "n,b",
                 "winmm": "n,b",
                 "dnet": "n,b",
+                "winhttp": "n,b",
+                "GameOverlayRenderer64": "b,n",
+                "GameOverlayRenderer": "b,n",
         }
 
         # CW Bug 21737. Locoland executable happens to be steam.exe.
@@ -2567,6 +2603,66 @@ class Session:
                 argv = [g_proton.lib_dir + "/wine/x86_64-unix/wine-preloader", g_proton.lib_dir + "/wine/x86_64-unix/wine", "c:\\windows\\system32\\steam.exe"]
             else:
                 argv = [g_proton.wine_bin, "c:\\windows\\system32\\steam.exe"]
+
+        # Steam Overlay and non-Steam launcher integration (Heroic, Lutris, Bottles)
+        steam_cands = [
+            os.environ.get("STEAM_COMPAT_CLIENT_INSTALL_PATH", ""),
+            os.path.expanduser("~/.steam/debian-installation"),
+            os.path.expanduser("~/.steam/steam"),
+            os.path.expanduser("~/.steam/root"),
+            os.path.expanduser("~/.local/share/Steam")
+        ]
+        active_steam_path = ""
+        for sp in steam_cands:
+            if sp and os.path.isdir(sp):
+                active_steam_path = sp
+                break
+
+        if active_steam_path:
+            self.env.setdefault("STEAM_COMPAT_CLIENT_INSTALL_PATH", active_steam_path)
+            # Inject gameoverlayrenderer.so into LD_PRELOAD
+            ov32 = os.path.join(active_steam_path, "ubuntu12_32", "gameoverlayrenderer.so")
+            ov64 = os.path.join(active_steam_path, "ubuntu12_64", "gameoverlayrenderer.so")
+            ld_preload = self.env.get("LD_PRELOAD", "")
+            if "gameoverlayrenderer.so" not in ld_preload:
+                ov_parts = [p for p in (ov32, ov64) if os.path.isfile(p)]
+                if ov_parts:
+                    append_to_env_str(self.env, "LD_PRELOAD", ":".join(ov_parts), ":")
+            self.env["ENABLE_VK_LAYER_VALVE_steam_overlay_1"] = "1"
+            self.env["ENABLE_VK_LAYER_VALVE_steam_overlay_32"] = "1"
+
+            # Auto-detect AppID if not provided
+            if "SteamAppId" not in self.env or "SteamGameId" not in self.env:
+                detected_appid = None
+                for arg in sys.argv[2:]:
+                    if arg.endswith(".exe") or os.path.isfile(arg):
+                        exe_dir = os.path.dirname(os.path.abspath(arg))
+                        appid_file = os.path.join(exe_dir, "steam_appid.txt")
+                        if os.path.isfile(appid_file):
+                            try:
+                                with open(appid_file, "r") as af:
+                                    txt = af.read().strip()
+                                    if txt.isdigit():
+                                        detected_appid = txt
+                                        break
+                            except Exception:
+                                pass
+                        of_ini = os.path.join(exe_dir, "OnlineFix.ini")
+                        if not detected_appid and os.path.isfile(of_ini):
+                            try:
+                                with open(of_ini, "r") as oiff:
+                                    for line in oiff:
+                                        sline = line.strip()
+                                        if sline.startswith("RealAppId=") or sline.startswith("FakeAppId="):
+                                            val = sline.split("=")[1].strip()
+                                            if val.isdigit():
+                                                detected_appid = val
+                                                break
+                            except Exception:
+                                pass
+                if detected_appid:
+                    self.env.setdefault("SteamAppId", detected_appid)
+                    self.env.setdefault("SteamGameId", detected_appid)
 
         rc = self.run_proc(adverb + argv + sys.argv[2:] + self.cmdlineappend)
 
