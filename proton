@@ -1743,6 +1743,21 @@ class Session:
     def __init__(self):
         self.log_file = None
         self.env = dict(os.environ)
+
+        # Force disable MangoHud in Vulkan loader to prevent overlay conflicts
+        disabled_layers = os.environ.get("VK_LOADER_LAYERS_DISABLE", "")
+        mangohud_filters = "*MangoHud*,*mangohud*"
+        if mangohud_filters not in disabled_layers:
+            disabled_layers = (disabled_layers + "," + mangohud_filters).strip(",")
+        self.env["VK_LOADER_LAYERS_DISABLE"] = disabled_layers
+        self.env["DISABLE_MANGOHUD"] = "1"
+        self.env["MANGOHUD"] = "0"
+        self.env["MANGOHUD_CONFIG"] = "no_display"
+        os.environ["VK_LOADER_LAYERS_DISABLE"] = disabled_layers
+        os.environ["DISABLE_MANGOHUD"] = "1"
+        os.environ["MANGOHUD"] = "0"
+        os.environ["MANGOHUD_CONFIG"] = "no_display"
+
         self.dlloverrides = {
                 "steam.exe": "b", #always use our special built-in steam.exe
                 "dotnetfx35.exe": "b", #replace the broken installer, as does Windows
