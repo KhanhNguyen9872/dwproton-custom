@@ -2620,16 +2620,6 @@ class Session:
 
         if active_steam_path:
             self.env.setdefault("STEAM_COMPAT_CLIENT_INSTALL_PATH", active_steam_path)
-            # Inject gameoverlayrenderer.so into LD_PRELOAD
-            ov32 = os.path.join(active_steam_path, "ubuntu12_32", "gameoverlayrenderer.so")
-            ov64 = os.path.join(active_steam_path, "ubuntu12_64", "gameoverlayrenderer.so")
-            ld_preload = self.env.get("LD_PRELOAD", "")
-            if "gameoverlayrenderer.so" not in ld_preload:
-                ov_parts = [p for p in (ov32, ov64) if os.path.isfile(p)]
-                if ov_parts:
-                    append_to_env_str(self.env, "LD_PRELOAD", ":".join(ov_parts), ":")
-            self.env["ENABLE_VK_LAYER_VALVE_steam_overlay_1"] = "1"
-            self.env["ENABLE_VK_LAYER_VALVE_steam_overlay_32"] = "1"
 
             # Auto-detect AppID if not provided
             if "SteamAppId" not in self.env or "SteamGameId" not in self.env:

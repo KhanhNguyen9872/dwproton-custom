@@ -15,7 +15,7 @@ A customized, multi-purpose Wine / Proton runner designed for seamless out-of-th
 - Eliminates the common *"Failed to load original steamclient. Error code: 126"* when running non-Steam or repacked games in standalone prefixes.
 - Prevents the *"The Steam Overlay is not enabled"* warning by fulfilling internal Steamworks overlay checks (error code `0x31`).
 - Auto-symlinks Steam `userdata/` and `config/` into the Wine prefix so user profile settings, licenses, and overlay keybindings persist seamlessly.
-- Auto-injects `gameoverlayrenderer.so` into `LD_PRELOAD` and enables Vulkan overlay layers (`ENABLE_VK_LAYER_VALVE_steam_overlay_1=1`) even when launched outside Steam (Heroic, Lutris, Bottles).
+- Auto-detects `SteamAppId` / `SteamGameId` from `steam_appid.txt` or `OnlineFix.ini` if missing.
 
 ### 3. Native Steam Protocol Forwarding (`steam://`)
 - Registered `Software\Classes\steam\shell\open\command` in Wine registry to bridge through `winebrowser.exe` -> `xdg-open`.
